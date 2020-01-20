@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="root" style="background-color: antiquewhite;">
+    <div id="siwper">
+      <div class="top">
+        <h1>say hi </h1>
+        <h2>say meow</h2>
+        <h3>say no</h3>
+      </div>
+      <ul class="bottom">
+        <li>AAaaa</li>
+        <li>bbbbb</li>
+        <li>BBBBB</li>
+        <li>CCCCC</li>
+        <li>DDDddd</li>
+      </ul>
+    </div>
+  </div>
+  <script>
+    //为什么要用虚拟DOM =>  只用解析一次DOM 后面都是操作虚拟DOM 性能更高
+    // 虚拟DOM  的数据结构? 将每一个标签储存在对象中 show me the code 
+    // 页面 转换成 虚拟DOM 
+    // <div></div> = > {tag:'div'}
+    // 文本节点 =>  {tag:'undefined',value:'text'}
+    // <div class="c" title="1"></div> => {tag:'div', data:{class:'c',title:'1'}}
+    // <div><span> </span></div> =>{ tag:'div' ,children:[{tag:'span'}]
+    //大概转成上面的这一种形式 
+
+    //---精简版的虚拟DOM数据结构
+    class VNode {
+      constructor(tag, data, text, type) {
+        //参数含义*(真实的vue还有一个elm 表示和DOM的对应关系 我们先暂时用不到)
+        // tag : 标签名 ， data： 属性 ， text ：文本节点的text ，type： 节点类型 children:子节点
+        this.tag = tag
+        this.data = data
+        this.text = text
+        this.type = type
+        this.childern = []
+      }
+      appendChild(node) { //传进来的是VNode 实例
+        this.childern.push(node)
+      }
+    }
+
+    //解析DOM 得到 VNode
+    function getVNode(realNode) { //接受真实的DOM
+      let _VNode = null
+      if (realNode.nodeType === 1) { //元素节点
+        let tag = realNode.nodeName //标签名
+
+        let data = {} //这是我们最终要存的data是对象
+        let dataArray = realNode.attributes //这个attributes是伪数组
+        // console.log(data[1].name); 数组里面存放的是对象 name是属性名 nodevalue是属性值
+        // console.log(data[1].nodeValue);
+        for (const iterator of dataArray) { //把arrtibutes 通过键值对的方式保存到data中
+          data[iterator.name] = iterator.nodeValue
+        }
+
+        let text = undefined //文本节点的value
+        let type = realNode.nodeType //节点类型
+
+        _VNode = new VNode(tag, data, text, type) //构造虚拟DOM
+
+        realNode.childNodes.forEach(element => {
+          //遍历realNode的子节点 将他们利用递归添加到虚拟DOM实例的children数组中
+          _VNode.appendChild(getVNode(element))
+        })
+
+      } else if (realNode.nodeType === 3) { //文本节点
+        _VNode = new VNode(undefined, undefined, realNode.nodeValue, realNode.nodeType)
+      }
+      return _VNode //函数返回一个类实例
+    }
+
+    //虚拟DOM 转化成 页面
+    function parseVNode(_VNode) { //接受虚拟DOM
+      let _node = null
+      if (_VNode.type === 1) { //元素节点
+        _node = document.createElement(_VNode.tag)
+        Object.keys(_VNode.data).forEach(element => {
+          _node.setAttribute(element, _VNode.data[element])
+        })
+        if (_VNode.childern.length > 0) {
+          _VNode.childern.forEach(element => {
+            //element 是子节点。所以要appendChild去添加子孩子
+            _node.appendChild(parseVNode(element))
+          })
+        }
+        return _node
+      } else if (_VNode.type === 3) { //文本节点
+        return document.createTextNode(_VNode.text)
+      }
+    }
+  </script>
+
+</body>
+
+</html>

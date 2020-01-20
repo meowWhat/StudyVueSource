@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>数据驱动上</title>
+</head>
+
+<body>
+  <div id="root">
+    <div>
+      <p>{{age}}++{{name}}</p>
+    </div>
+    <div>姓名:{{name}}</div>
+    <h1>年龄:{{age}}</h1>
+    <h1>
+      复杂就完事了:{{name}}
+      <div>
+        <p>{{age}}</p>
+      </div>
+    </h1>
+  </div>
+
+  <script>
+    const rootNode = document.querySelector('#root') //拿到模板 *模拟
+    let generteNode = rootNode.cloneNode(true) //克隆模板  
+    let data = { //拿到数据 * 模拟
+      age: 18,
+      name: '张三'
+    }
+    const regex = /\{\{(.*?)\}\}/g //--匹配{{}}的正则表达式
+    // regular expression 正则表达
+    function compile(template, data) {
+      template.childNodes.forEach(element => { //遍历模板
+        if (element.nodeType === 3) { //nodetype 为三 表示文本节点，nodetype为1 表示元素节点
+          const text = element.nodeValue; //如果是文本节点 拿到文本内容
+          //这里拿到需要解析的花括号 将他解析 即可
+          // 怎么解析？ 使用正则表达式
+          const newText = text.replace(regex, (_, g) => {
+            //console.log(_);  第一个参数拿到的是匹配到字段=={{age}}
+            //console.log(g); 第二参数拿到的是分组 也就是正则表达式中（）的内容
+            let key = g.trim() //做trim处理
+            return data[key] //replace 会把匹配到的 也就是 _ 参数替换成返回值
+          })
+          //经过这一步处理 newText 就是我们替换后的文本节点
+          element.nodeValue = newText
+        } else if (element.nodeType === 1) {
+          //如果是元素节点他可能包含子节点 所以用递归就可以了
+          compile(element, data)
+        }
+      });
+    }
+    compile(generteNode, data) //调用我们写好的complier函数 传入要编译的data 和模板
+    // 在rootNode 的父节点也就是body 进行替换操作 第一个参数newNode ,第二个参数 oldNode 
+    // 即将渲染好的模板放到页面中
+    rootNode.parentNode.replaceChild(generteNode, rootNode)
+  </script>
+</body>
+
+</html>

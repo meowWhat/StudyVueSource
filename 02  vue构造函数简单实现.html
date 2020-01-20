@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>vue构造函数简单实现</title>
+</head>
+
+<body>
+  <div id="root">
+    <div>
+      <p>{{age}}++{{name}}</p>
+    </div>
+    <h1>{{message.info}}</h1>
+    <div>姓名:{{name}}</div>
+    <h1>年龄:{{age}}</h1>
+    <h1>
+      复杂就完事了:{{name}}
+      <div>
+        <p>{{age}}</p>
+      </div>
+    </h1>
+  </div>
+  <script>
+    class Vue {
+      constructor(options) {
+        //第一步 接收参数
+        //习惯内部参数用下划线开头,只读参数用 $ 符号开头
+        this._data = options.data
+        this._el = options.el
+
+        //第二步 准备工作(准备模板)
+        this._templateDOM = document.querySelector(this._el) //拿到需要渲染的模板 
+        this._parentNode = this._templateDOM.parentNode //拿到模板的父节点用来替换
+
+        //第三步渲染页面
+        this.render() //内部封装的render函数
+      }
+    }
+
+    Vue.prototype.render = function () {
+      this.compiler() //调用原型上的compiler方法 
+      //函数内部调用 compile()函数 =>结合data 进行递归编译
+      // 然后调用 update() => 将编译后的准DOM 替换到页面中
+    }
+
+    Vue.prototype.compiler = function () { //compiler函数
+      let realHTMLDOM = this._templateDOM.cloneNode(true) //拷贝模板得到准DOM
+      compile(realHTMLDOM, this._data) //封装的compile方法
+      this.update(realHTMLDOM) //原型上的update函数
+    }
+
+    Vue.prototype.update = function (real) { //update函数
+      this._parentNode.replaceChild(real, this._templateDOM)
+    }
+
+    function compile(template, data) { //简单版的编译函数  具体实现看 01 数据驱动
+      const regex = /\{\{(.*?)\}\}/g
+      template.childNodes.forEach(element => {
+        if (element.nodeType === 3) {
+          let text = element.nodeValue
+          const newText = text.replace(regex, (_, g) => {
+            const key = g.trim()
+            return data[key]
+          })
+          element.nodeValue = newText
+        } else if (element.nodeType === 1) {
+          compile(element, data)
+        }
+      });
+    }
+
+    new Vue({ //实现我们自己的vue 
+      el: '#root',
+      data: {
+        name: '张三',
+        age: 18,
+        message: {
+          info: 'asdas'
+        }
+      }
+    })
+
+    //这里出现了问题
+    // 1 无法解析复杂的数据类型 {{data.name}} 这样的格式就无法渲染
+    // 2 vue源码使用的是虚拟DOM 我们拿的是克隆  
+    // 接下来 我们解决这些问题 
+  </script>
+
+
+</body>
+
+</html>

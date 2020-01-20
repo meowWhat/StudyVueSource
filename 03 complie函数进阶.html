@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    const data = {
+      message: {
+        info: '深层解析'
+      },
+      name: {
+        name1: {
+          name2: '张三'
+        }
+      }
+    }
+
+    // function getValueByPath(data, path) { //通过b.c.d 这样的路径来得到value
+    //   let paths = path.split('.') //得到对象路径的伪数组[message,info,...]
+    //   let res = data
+    //   paths.forEach(element => { //利用循环 操作 教不了 只能积累这种写法
+    //     res = res[element]
+    //   });
+    //   return res //retrun 就是我们想要的value了
+    // }
+    // const a = getValueByPath(data, 'name.name1.name2')
+    // console.log(a);
+    //------------------------------
+    // Vue的源码中采用了高级的技巧 柯里化 currying
+    // 什么是柯里化？ 简单的来说就是将含有多个参数的函数  拆解成携带单一参数的函数
+
+    function createGetValueByPath(path) {
+      let paths = path.split('.')
+
+      return function getValueByPath(data) { //重构一下  我们这里path是不变 的 data是改变的
+        let res = data
+        paths.forEach(element => {
+          res = res[element]
+        });
+        return res
+      }
+
+    }
+    const getValueByPath = createGetValueByPath('name.name1.name2')
+    console.log(getValueByPath(data));
+  </script>
+</body>
+
+</html>
