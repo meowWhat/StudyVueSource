@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    //Vue响应式原理的核心函数
+    const o = {
+      name: '张三'
+    }
+    //参数一 传一个对象 ，参数二 ：要定义对象的属性名 ,参数三: 传入一个对象
+    Object.defineProperty(o, 'age', {
+      configurable: true, //决定这个属性是否可配置
+      writable: true, // 这个属性是否可以更改  （只读属性）
+      enumerable: true, //这个属性是否可以枚举 (_prop 就是不能枚举属性)
+      value: 18
+    })
+
+    // ok 进入下一步  响应式的核心就是监听 defineProperty 中的 set  get
+    Object.defineProperty(o, 'age', { //writable value 和 set get 不能同时使用 
+      configurable: true,
+      enumerable: true,
+      set(newValue) {
+        //每次给o.age 赋值 会进入set  函数  set会接受新的值过来
+        console.log('监听到了' + newValue + '新的值');
+      },
+      get() {
+        //每次 调用o.age 会进入get  o.age 的结果就是get函数的返回值
+        console.log('监听到了o.age 的调用');
+        return '监听到了o.age 的调用'
+      }
+    })
+
+    //  所以这里出现了一个问题  这样监听到的对象的set 和 get  没有意义
+    // 因为每次 调用o.age 结果都是 get()中的return   所以我们要把set 的值 保存起来 放到get中返回
+    let value = null //保存set中的值
+    Object.defineProperty(o, 'test', {
+      configurable: true,
+      enumerable: true,
+      set(newValue) {
+        value = newValue
+      },
+      get() {
+        return value
+      }
+    })
+
+    // OK 我们已经可以使用Object.defineProperty 去监听属性了 
+    //但是这里的 let value =null 被暴露在了全局  我们以后监听的属性会非常多 每一个属性都给一个值去保存肯定是
+    //不合适的  怎么解决？  Vue 的源码中采用了非常巧妙的方式 原理是用函数的闭包去实现 我们来看看
+    //当然这里肯定是简化版的
+    const demo = {
+      name: '张三',
+      age: 18
+    }
+
+    function defineReactive(target, key, value, enumerable = true) {
+      // 解释下参数  target 目标对象 key  属性名
+      //  value 上面提到的暴露在全局的变量  这里有闭包 就有了自己的作用域不会污染全局
+      // enumerable 后面会用到 给他一个默认值 为true 
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: !!enumerable,
+        set(newValue) {
+          value = newValue
+        },
+        get() {
+          return value
+        }
+      })
+    }
+    defineReactive(demo, 'test', 'asd')
+    //ok 进入07
+  </script>
+
+</body>
+
+</html>
