@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app">
+    <h1>{{name}}</h1>
+    <ul>
+      <li>{{age}}</li>
+    </ul>
+    <div style="background-color: aqua;">
+      <h1>{{message.info}}</h1>
+    </div>
+  </div>
+  <script>
+    /**
+     * 思路：首先模拟使用我们的vue 写上options对象  
+     */
+    // new Vue({
+    //   el: '#app',
+    //   data: {
+    //     name: '张三',
+    //     aeg: 18,
+    //     message: {
+    //       info: '张三18岁了'
+    //     }
+    //   }
+    // })
+    /**
+     *既然是new出来的Vue实例 那么vue一定要能new！！
+     * 所以我们创建Vue的类 原生是用构造函数 我们用es6的新特性
+     * 类里我们要接受用户传进来的options 
+     */
+    class Vue {
+      constructor(options) {
+        //接受传进来的options 
+        this._el = document.querySelector(options.el)
+        this._data = options.data //注意这里是简化的版本 源码里更复杂
+        this._parent = this._el.parentNode
+        //执行挂载操作 将组件挂载到页面中
+        this.mount() //mount方法不会凭空产生，所以我们要去vue的原型上写上 
+      }
+    }
+    /**
+     * 在Vue的原型中添加mount方法
+     */
+    Vue.prototype.mount = function () {
+      //这个方法具体干什么事情呢？ // 1 缓存render函数（同时缓存了抽象语法树） //2 然后挂载组件(更新页面)
+      this.render = this.createRenderFn()
+      //柯里化写法 这样就不用每次调用render 的时候都要去解析抽象语法树
+      // 在mountComponet之前需要提供一个render方法 生成 虚拟DOM 
+      this.mountComponent()
+      //这么做只是为了离vue的源码设计结构更近，没有其他含义 可以用其他的方法实现!!!
+    }
+
+    Vue.prototype.mountComponent = function () {
+      //执行 mountComponent（）函数
+      let mount = () => { //这里进行页面更新操作  具体进入update函数 
+        this.update(this.render())
+      }
+      mount.call(this) //本质应该交给watcher来调用。。后面会讲到这里  现在只是为了模拟Vue设计结构
+      //这样去做我们就可以随时调用 update方法 
+    }
+    /**
+     * 在真正的vue中采用了二次提交的设计结构
+     * 使用的是抽象语法树 
+     * 也就是 拿到html页面字符串=》解析生成AST抽象语法树 =》complie为虚拟DOM VNode=》render渲染到页面中
+     */
+    Vue.prototype.createRenderFn = function () {
+      //创建render函数 目的是缓存 抽象语法树 （我们使用虚拟DOM来代替）
+      let ast = getVNode(this._el)
+      //这一步的getVNode 是非常耗费性能的 而且值是不会改变的 所以我们只做一次这个操作 。 但是后面的函数要用到这个返回值。还要被多次调用 我们怎么封装呢？  采用柯里化
+      // vue 中 render函数作用 将AST+DATA=>VNode
+      // 我们 将带坑的 VNode +DATA => 含有数据的VNode
+      return function render() { //这里返回render函数 供以后多次调用。  函数体在combine中
+        return combine(ast, this._data) //传入 抽象语法树 和 data
+      }
+    }
+
+    Vue.prototype.update = function (VNode) {
+      //这里接受 render 完成之后的 虚拟DOM 
+      //将虚拟DOM渲染到页面中 diff算法就在这里 后面再去进阶
+      //我们这里做简化处理 直接替换原DOM
+      const dom = parseVNode(VNode)
+      this._parent.replaceChild(dom, this._el)
+    }
+
+    function createGetValueByPath(data) { //参考 03
+      let res = data
+      return function getValueByPath(path) {
+        let paths = path.split('.')
+        paths.forEach((element) => {
+          res = res[element]
+        })
+        return res
+      }
+    }
+
+    function combine(ast, data) { //rendedr函数的具体算法  作用：将data 和VNode 结合成新的VNode 等待渲染
+      //这里要编译的 ast 其实就是VNode 我们将这个对象当中的{{}} 替换成data中对应的值即可
+      let regex = /\{\{(.*?)\}\}/g //拿到正则表达式
+      let _VNode = null
+      let _tag = ast._tag
+      let _data = ast._data
+      let _text = ast._text
+      let _type = ast._type
+      let _children = ast._children
+      if (_type === 1) {
+        _VNode = new VNode(_tag, _data, _text, _type)
+        _children.forEach(element => {
+          _VNode.appendChild(combine(element, data))
+        })
+      } else if (_type === 3) {
+        const newText = _text.replace(regex, (_, g) => {
+          return createGetValueByPath(data)(g)
+        })
+        _VNode = new VNode(_tag, _data, newText, _type)
+      }
+      return _VNode
+    }
+
+
+    /**
+     * 虚拟DOM的获取和解析  参考04  
+     */
+    class VNode {
+      constructor(tag, data, text, type) {
+        this._tag = tag
+        this._data = data
+        this._text = text
+        this._type = type
+        this._children = []
+      }
+      appendChild(node) {
+        this._children.push(node)
+      }
+    }
+
+    function getVNode(realNode) { //将模板传进来 参考04  
+      let _VNode = null
+      if (realNode.nodeType === 3) { //文本节点
+        _VNode = new VNode(undefined, undefined, realNode.nodeValue, realNode.nodeType)
+      } else if (realNode.nodeType === 1) { //元素节点
+        let tag = realNode.nodeName
+        let dataArray = realNode.attributes
+        let data = {}
+        for (const iterator of dataArray) {
+          data[iterator.name] = iterator.nodeValue
+        }
+        let text = undefined
+        let type = realNode.nodeType
+        _VNode = new VNode(tag, data, text, type)
+        realNode.childNodes.forEach(element => {
+          _VNode.appendChild(getVNode(element))
+        });
+      }
+      return _VNode
+    }
+
+    function parseVNode(VNode) { //解析VNode 返回一个DOM节点
+      let _DOM = null
+      if (VNode._type === 1) {
+        _DOM = document.createElement(VNode._tag)
+        Object.keys(VNode._data).forEach(element => {
+          _DOM.setAttribute(element, VNode._data[element])
+        })
+        VNode._children.forEach(element => {
+          _DOM.appendChild(parseVNode(element))
+        })
+      } else if (VNode._type === 3) {
+        _DOM = document.createTextNode(VNode._text)
+      }
+      return _DOM
+    }
+
+
+    new Vue({ //Vue实例化
+      el: '#app',
+      data: {
+        name: '张三',
+        age: 18,
+        message: {
+          info: '张三18岁了'
+        }
+      }
+    })
+  </script>
+</body>
+
+</html>
