@@ -1,0 +1,85 @@
+  <!DOCTYPE html>
+  <html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>事件模型基础 </title>
+  </head>
+
+  <body>
+
+    <script>
+      //理解事件模型 为什么要理解事件模型 对Vue有什么用呢？
+      // => 为理解发布订阅模式打下基础 并且后面Vue中 @click 会使用到这里的事件模型
+      //那么什么是事件模型呢？
+      //就是  我们把在 特定时机 执行的操作 注册(on)成一个事件 。等到我们emit的时候 再去执行里面的操作并且这个事件是可以移除的(off)
+
+
+      //第一步 我们需要一个全局的 event对象 提供on 方法  off 方法 emit方法
+      //为什么用闭包 ,就是为了存放eventObjs 
+      let event = (function () {
+        eventObjs = { //存放事件的内容  比如 click：function(){}
+
+        }
+        return { //这里是对象里函数的增强写法 
+          on(type, handler) { //注册事件，可以连续注册，可以注册多个事件
+            //这里会接受两个参数 ，type 是函数名 ，handler 是函数体
+            //然后我们将 这个事件的内容以对象的形式存储到eventObjs中
+            //也就是 type：handler  那么在需要使用到的时候  eventObjs.type（）调用即可
+            (eventObjs[type] || (eventObjs[type] = [])).push(handler)
+            //vue源码中这样干的 很优雅-- 解释一下
+            //首先eventObjs.type 里面放的是一个数组结构 但是我们刚开始初始化是一个空对象啥都没有 type都没有
+            //这个时候 我们调用了 event.on
+            //当evnentObjs 的这个对象中有 type 这个键的时候 直接把handler函数体push进去 --第一次是进不来的因为没有type 这个键 所以他会走后面的eventObjs[type] = [] 创建一个数组 再把函数体push进去
+          },
+          off(type, handler) { //解绑事件
+            //这里根据arguments去判断
+            switch (arguments.length) {
+              case 0: //长度等于零 清空eventObjs
+                eventObjs = {} //移除所有
+                break;
+              case 1: //长度等于1 就是只传了type 就是清空这个type
+                delete eventObjs[type] //不要这样去移除属性， 考虑到响应式
+                // 用过vue的知道 vue里面的delete是不支持响应式的 
+                // eventObjs[type] = [] //这样做效果一样  虽然会浪费一点点内存
+                break;
+              case 2: //长度等于2  传了type 和handler =>移除type事件的handler函数
+                if (Array.isArray(eventObjs[type])) {
+                  eventObjs[type].forEach((element, index) => {
+                    //注意这里比较的是内存地址 所以如果handler没有被保存  也就是说 每次调用on 注册事件的函数体 是匿名函数 ，那么这里是判断不到的 ，因为匿名函数相当于开辟了一个新的函数地址    
+                    if (element === handler) {
+                      eventObjs[type].splice(index, 1)
+                    }
+                  });
+                }
+                break;
+            }
+          },
+          emit(type) { //调用之前注册的事件 的方法 
+            //那么问题来了 如果emit要传参数怎么办?
+            let args = Array.prototype.slice.call(arguments, 1)
+            //把参数截取一下。 这样args就是拿到 除type外的参数 
+            eventObjs[type].forEach(element => {
+              element.apply(this, args)
+            })
+          }
+        }
+      })()
+      event.on('click', function (test1, test2) {
+        console.log(test1);
+        console.log(test2);
+      })
+
+      function fn() {
+        console.log('我是神奇的人');
+      }
+      event.on('click', fn)
+      event.emit('click', 'emit传递参数1', '参数2')
+    </script>
+
+  </body>
+
+
+  </html>
