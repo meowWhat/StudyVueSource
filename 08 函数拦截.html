@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+
+  <!-- <script>
+    //我们要给数组中的pop 之类的方法扩展功能  这种过程可以称之为 函数拦截
+    //小demo体会一下函数拦截
+    function sayHi() {
+      console.log('hi');
+    }
+    sayHi() //可以打印hi  但是我想对其扩展 让他打印meow  怎么做
+    let temp = sayHi //用变量保存函数
+    sayHi = function () { //将原函数指向新的地址
+      temp() // 调用之前保存的函数 
+      console.log('meow'); //添加新的功能
+    }
+    sayHi() //这里就实现了我们的函数拦截非常的简单
+  </script> -->
+  <script>
+    //OK我们现在要拦截数组的方法 对其扩展
+    //现在我们有一个数组  在使用arr的push方法的时候对其拦截扩展
+    let arr = []
+    // let tmp = {
+    //   push: function () {
+    //     console.log('这里进行了拦截');
+    //     Array.prototype['push'].apply(this, arguments)
+    //   }
+    // }
+    // arr.__proto__ = tmp
+    //这样去做有问题 我们只对push做了拦截，并且 arr的原型链被破坏了 他使用不了数组的其他方法了
+    //解决 首先要给tmp加上数组的原型链 ，再利用循环对其余的pop之类的方法进行一个拦截
+    //怎么给tmp加上数组的原型链? 
+    // const tmp = {
+    //   __proto__: Array.prototype
+    // }
+    //这样有点low
+    //尤神是这样做的:利用了一个es5的新方法
+    // ECMAScript 5 中引入了一个新方法：Object.create()。可以调用这个方法来创建一个新对象。新对象的原型就是调用 create 方法时传入的第一个参数：--mdn给的解释
+    const tmp = Object.create(Array.prototype) //和我们上面的那种写法是等价的
+    //这样我们的tmp就有了数组的原型对象
+    //再将数组的方法 定义成一个常量 我们将他遍历然后添加到tmp对象中就可以了
+    const ARRAY_METHODS = ['push', 'pop', 'shift', 'unshift', 'reverse', 'sort', 'splice']
+    ARRAY_METHODS.forEach(method => {
+      tmp[method] = function () {
+        console.log('进行了愉快的拦截');
+        //拦截之后干什么事情呢？ 为所欲为对吧!!
+        // arguments.forEach(element => {  //当然arguments是没有foreach的
+        //   //把所有的参数遍历之后 添加进我们的响应式系统的就可以了 
+        //   //就是调用07里面的响应式化 这里我们放到09去combine一下
+        // })
+        //这样做是有bug 的尝试一下你就知道了
+        return Array.prototype[method].apply(this, arguments)
+        //这里调用对应的Array的原型对象上的方法就可以了
+        //Array.prototype[method]()--不能这么去写
+        //直接调用相当于对Array.prototype做操作
+        //因为他内部的逻辑是对上下文 this 操作，参数操作的是arguments 
+        //所以我们利用apply改变他的this指向  那么之后 arr.tmp.push 等价于 arr.push  这时候this指向的就是arr了   arguments同理  
+        //记住这种写法 不要纠结;
+        //还有一个问题 原生的push之类的操作是有返回值的 所以我们retrun一下
+      }
+    });
+    //最后一步 将tmp 赋值给arr的原型
+    arr.__proto__ = tmp
+  </script>
+</body>
+
+
+</html>

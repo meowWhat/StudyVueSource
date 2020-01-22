@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- 搭上一个最简版的vue简单的模拟一下响应式和数据驱动结合 -->
+<!-- 现在有很多的bug 但是我们知道了最基本的一个vue响应式的一个过程 为阅读源码打下基础 -->
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <!-- 模板 -->
+  <div id="app">
+    <h1>{{name}}</h1>
+    <ul>
+      <li>{{age}}</li>
+    </ul>
+    <div style="background-color: aqua;">
+      <h1>{{message.info}}</h1>
+    </div>
+  </div>
+  <!-- Vue类 -->
+  <script>
+    class Vue {
+      constructor(options) {
+        //接受参数
+        this._el = document.querySelector(options.el)
+        this._data = options.data
+        this._parent = this._el.parentNode
+
+        //对象响应式化
+        objectReactify(this._data, this)
+        //执行挂载操作
+        this.mount()
+      }
+    }
+
+    Vue.prototype.mount = function () {
+      this.render = createRenderFn(this._el) //缓存render函数
+      this.mountComponent() //挂载组件
+    }
+    Vue.prototype.mountComponent = function () {
+      this.mountGo = () => {
+        return this.update(this.render())
+      }
+      this.mountGo.call(this)
+
+    }
+
+    Vue.prototype.update = function (vnode) { //这个算法是不负责任的 简单模拟一下
+      //就此就完成了 
+      this._parent.replaceChild(parseVNode(vnode), document.querySelector('#app'))
+    }
+
+    function createRenderFn(dom) { //创建render函数 缓存ast
+      const ast = getVNode(dom)
+      return function render() {
+        return combine(ast, this._data) //render函数实体 将抽象语法树和数据结合
+      }
+    }
+
+    function combine(ast, data) { //rendedr函数的具体算法  作用：将data 和VNode 结合成新的VNode 等待渲染
+      //这里要编译的 ast 其实就是VNode 我们将这个对象当中的{{}} 替换成data中对应的值即可
+      let regex = /\{\{(.*?)\}\}/g //拿到正则表达式
+      let _VNode = null
+      let _tag = ast._tag
+      let _data = ast._data
+      let _text = ast._text
+      let _type = ast._type
+      let _children = ast._children
+      if (_type === 1) {
+        _VNode = new VNode(_tag, _data, _text, _type)
+        _children.forEach(element => {
+          _VNode.appendChild(combine(element, data))
+        })
+      } else if (_type === 3) {
+        const newText = _text.replace(regex, (_, g) => {
+          return createGetValueByPath(g)(data)
+        })
+        _VNode = new VNode(_tag, _data, newText, _type)
+      }
+      return _VNode
+    }
+
+
+    function createGetValueByPath(path) { //通过路径得到对象的value
+      let paths = path.split('.')
+      return function getValueByPath(data) {
+        let value = data
+        paths.forEach(element => {
+          value = value[element]
+        })
+        return value
+      }
+    }
+  </script>
+  <!-- 虚拟DOM操作相关 -->
+  <script>
+    class VNode { //虚拟DOM存储结构
+      constructor(tag, data, text, type) {
+        //参数含义*(真实的vue还有一个elm 表示和DOM的对应关系 我们先暂时用不到)
+        // tag : 标签名 ， data： 属性 ， text ：文本节点的text ，type： 节点类型 children:子节点
+        this._tag = tag
+        this._data = data
+        this._text = text
+        this._type = type
+        this._children = []
+      }
+      appendChild(vnode) {
+        this._children.push(vnode)
+      }
+    }
+
+    function getVNode(dom) { //模拟Vue中将DOM转换成AST  //我们这里是将DOM 转化成VNode
+      let _VNode = null
+      if (dom.nodeType === 3) { //文本节点
+        _VNode = new VNode(undefined, undefined, dom.nodeValue, 3)
+      } else if (dom.nodeType === 1) { //元素节点
+        let tag = dom.nodeName
+        let text = undefined
+        let type = dom.nodeType
+        let data = {}
+        for (const iterator of dom.attributes) {
+          data[iterator.name] = iterator.value
+        }
+        _VNode = new VNode(tag, data, text, type)
+        for (const iterator of dom.childNodes) {
+          _VNode.appendChild(getVNode(iterator))
+        }
+      }
+      return _VNode
+    }
+
+    function parseVNode(_VNode) { //解析VNode
+      let dom = null
+      if (_VNode._type === 3) { //文本节点对象
+        dom = document.createTextNode(_VNode._text)
+      } else if (_VNode._type === 1) { //元素节点对象
+        dom = document.createElement(_VNode._tag)
+        Object.keys(_VNode._data).forEach(element => {
+          dom.setAttribute(element, _VNode._data[element])
+        })
+        _VNode._children.forEach(element => {
+          dom.appendChild(parseVNode(element))
+        })
+      }
+      return dom
+    }
+  </script>
+
+  <!-- 对象响应式化 -->
+  <script>
+    function objectReactify(obj, vue) {
+      //对象响应式化 -- 这个算法是有很大的问题的 
+      Object.keys(obj).forEach(element => {
+        let value = obj[element]
+        if (Array.isArray(value)) {
+          objectReactify(value, vue)
+        } else if (typeof value === 'object') {
+          objectReactify(value, vue)
+        } else {
+          defineObject(obj, element, value, vue)
+        }
+      })
+    }
+
+    function defineObject(target, key, value, vue, enumerable = true) {
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: !!enumerable,
+        set(newValue) {
+          console.log('监听到了' + key + '改变成：' + newValue);
+          //在这里执行updat
+          value = newValue
+          vue.mountGo.call(vue)
+        },
+        get() {
+          console.log('监听到了' + key + '的读取');
+          console.log(vue);
+          return value
+        }
+      })
+    }
+  </script>
+  <!-- 用户使用板块 -->
+  <script>
+    const a = new Vue({
+      el: '#app',
+      data: {
+        name: '张三',
+        age: 18,
+        message: {
+          info: 'meow'
+        }
+      }
+    })
+  </script>
+</body>
+
+</html>

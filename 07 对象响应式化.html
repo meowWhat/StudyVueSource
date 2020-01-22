@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    //怎么进行响应式？ =>监听对象的属性变化 =>属性改变的时候 进行页面的update 就可以了
+    //第一步监对象的属性变化  我们这里直接把06的东西拿过来
+    // let o = {
+    //   name: '张三',
+    //   age: 18,
+    //   message: {
+    //     info: 'asdasd'
+    //   }
+    // }
+    //首先监听对象每个属性的变化
+    // for (const key in o) {    //可以这样写
+    //   if (o.hasOwnProperty(key)) {
+    //     const element = o[key];
+    //     defineReactive(o, key, element)
+    //   }
+    // }
+    // Object.keys(o).forEach(element => {
+    //   //Object.keys 就是将o对象的属性名 遍历出来 存到一个数组中  返回
+    //   defineReactive(o, element, o[element])
+    // })
+    //这里有一个问题 我们只遍历了一层  也就是无法监听具有深度的对象 
+    // 比如 下面这个对象中的message 下面的info属性改变  所以我们需要改进这个算法
+    let reactifyObj = {
+      message: {
+        info: 'info',
+        array: ['01', '02', '03']
+      },
+      name: '张三',
+      age: [18, 20, 30],
+      ohmygod: [{
+        name: 'ohmygod1'
+      }, {
+        name: 'ohmygod2'
+      }]
+    }
+
+    function objectReactify(obj) {
+      //对象响应式化 进阶 --接受一个对象 将他添加进我们的响应式系统中
+      //这里对象的深度是不可预测的 所以需要进行递归处理
+      // 第一步 先遍历第一层obj
+      Object.keys(obj).forEach(element => {
+        //obj 是对象   
+        // element 是属性名
+        // value  属性值
+        let value = obj[element]
+        if (Array.isArray(value)) { //判断是否是数组
+          objectReactify(value)
+        } else if (typeof value === 'object') {
+          objectReactify(value)
+        } else {
+          defineReactive(obj, element, value)
+        }
+      })
+    }
+
+    function defineReactive(target, key, value, enumerable = true) {
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: !!enumerable, //转换成布尔类型
+        set(newValue) {
+          value = newValue
+          console.log(`监听到了${key}的改变`)
+        },
+        get() {
+          console.log(`监听到了${key}的读取`)
+          return value
+        }
+      })
+    }
+
+    //这里有点bug 比如是函数 会出bug  虽然data里不写函数
+    //还有数组的增删改查 都不会添加进我们的响应式系统中 所以需要完善
+    objectReactify(reactifyObj)
+  </script>
+
+</body>
+
+</html>

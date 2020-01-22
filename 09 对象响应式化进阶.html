@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+<!-- 此篇有很多bug  是现在做不到的。。还要继续学习 -->
+
+<body>
+  <script>
+    //这里我们就把 08 和 09 综合起来 完善成对象响应式化
+    let reactifyObj = {
+      message: {
+        info: 'info',
+        array: ['01', '02', '03']
+      },
+      name: '张三',
+      age: [18, 20, 30],
+      ohmygod: [{
+        name: 'ohmygod1'
+      }, {
+        name: 'ohmygod2'
+      }]
+    }
+
+    function arrayReactify() {
+      const tmp = Object.create(Array.prototype)
+      const ARRAY_METHODS = ['pop', 'shift', 'unshift', 'reverse', 'sort', 'splice']
+      ARRAY_METHODS.forEach(method => {
+        tmp[method] = function () {
+          return Array.prototype[method].apply(this, arguments)
+        }
+      });
+      tmp['push'] = function () { //这里简单的改写了几个数组操作的方法 有很多bug  原版不是这样干的
+        for (const iterator of arguments) {
+          pushReactify(this, this.length, iterator)
+        }
+        return this.length
+      }
+      return tmp
+    }
+
+    function pushReactify(target, key, value, enumerable = true) {
+      if (Array.isArray(value)) {
+        defineReactive(target, key, value)
+        value.__proto__ = arrayReactify()
+        Object.keys(value).forEach(element => {
+          pushReactify(value, element, value[element])
+        })
+      }
+      if (typeof value === 'object') {
+        defineReactive(target, key, value)
+        Object.keys(value).forEach(element => {
+          pushReactify(value, element, value[element])
+        })
+      } else {
+        defineReactive(target, key, value)
+      }
+    }
+
+    function objectReactify(obj) {
+      Object.keys(obj).forEach(element => {
+        let value = obj[element]
+        if (Array.isArray(value)) {
+          value.__proto__ = arrayReactify()
+          objectReactify(value)
+        } else if (typeof value === 'object') {
+          objectReactify(value)
+        } else {
+          defineReactive(obj, element, value)
+        }
+      })
+    }
+
+    function defineReactive(target, key, value, enumerable = true) {
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: !!enumerable,
+        set(newValue) {
+          value = newValue
+          console.log(`监听到了${key}的改变`)
+        },
+        get() {
+          console.log(`监听到了${key}的读取`)
+          return value
+        }
+      })
+    }
+    objectReactify(reactifyObj)
+  </script>
+</body>
+
+</html>
